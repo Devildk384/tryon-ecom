@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 400px;
+      max-height: 600px;
+      overflow-y: auto;
+      padding: 20px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin: 0;
+      box-sizing: border-box;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
+
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 15px;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section label {
+      font-size: 12px;
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .section input {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      background: rgba(255, 255, 255, 0.9);
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+
+    .section a {
+      color: #ffd700;
+      font-size: 11px;
+      text-decoration: none;
+    }
+
+    .section a:hover {
+      text-decoration: underline;
+    }
+
+    .upload-area {
+      border: 2px dashed rgba(255, 255, 255, 0.5);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .upload-area:hover {
+      border-color: white;
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .upload-area.drag-over {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: white;
+      transform: scale(1.02);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .preview-container {
+      display: none;
+      margin-top: 10px;
+      position: relative;
+    }
+
+    .preview {
+      max-width: 100%;
+      max-height: 150px;
+      border-radius: 10px;
+      display: block;
+      margin: 0 auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .remove-image {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(255, 59, 48, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 28px;
+      padding: 0;
+    }
+
+    .product-images-container {
+      display: none;
+    }
+
+    .product-image-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .product-image-wrapper {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      aspect-ratio: 1;
+    }
+
+    .product-image-wrapper:hover {
+      transform: scale(1.05);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .product-image-wrapper.selected {
+      border-color: #4ade80;
+      box-shadow: 0 0 0 2px #4ade80;
+    }
+
+    .product-image-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .select-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(74, 222, 128, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: white;
+    }
+
+    .product-image-wrapper.selected .select-overlay {
+      display: flex;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background: white;
+      color: #667eea;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .secondary-btn {
+      background: rgba(255, 255, 255, 0.3);
+      color: white;
+    }
+
+    .secondary-btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    .status {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 12px;
+      min-height: 18px;
+      line-height: 1.4;
+    }
+
+    .reset-btn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    .reset-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 15px 0;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .progress-bar {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      height: 6px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-fill {
+      background: linear-gradient(90deg, #4ade80, #22c55e);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+      border-radius: 10px;
+    }
+
+    .ai-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #764ba2;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 8px;
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🤖 AI Virtual Try-On <span class="ai-badge">Glam.AI</span></h2>
+    <div class="subtitle">Try on outfits instantly with AI</div>
+    
+    <!-- Step 1: API Key -->
+    <div class="section">
+      <div class="section-title">
+        <span class="step-number">1</span>
+        <span>🔑 API Key</span>
+      </div>
+      <input type="password" id="apiKey" placeholder="Enter your Glam.AI API key">
+      <div style="margin-top: 5px;">
+        <a href="https://glam.ai" target="_blank">Get your free key →</a>
+      </div>
+    </div>
+
+    <!-- Step 2: Upload Your Photo -->
+    <div class="section">
+      <div class="section-title">
+        <span class="step-number">2</span>
+        <span>📸 Your Photo</span>
+      </div>
+      <div class="upload-area" id="uploadArea">
+        <p style="margin: 5px 0; font-size: 14px;">Click or drag to upload</p>
+        <p style="margin: 5px 0; font-size: 11px; opacity: 0.8;">Full body photo recommended</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="preview-container" id="previewContainer">
+        <img id="preview" class="preview" alt="Preview">
+        <button class="remove-image" id="removeImage">×</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Select Product Image -->
+    <div class="section">
+      <div class="section-title">
+        <span class="step-number">3</span>
+        <span>👕 Product Image</span>
+      </div>
+      <button id="fetchImagesBtn" class="secondary-btn">🔍 Fetch Product Images</button>
+      <div class="product-images-container" id="productImagesContainer">
+        <p style="font-size: 11px; margin: 10px 0 5px; opacity: 0.9;">Select the image you want to try on:</p>
+        <div class="product-image-grid" id="productImageGrid"></div>
+      </div>
+    </div>
+
+    <!-- Try On Button -->
+    <button id="tryOnBtn" disabled>🚀 Generate AI Try-On</button>
+    <button id="resetBtn" class="reset-btn" style="display: none;">↺ Reset to Original</button>
+    
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p id="loadingText" style="font-size: 12px;">Processing with Glam.AI...</p>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    
+    <div class="status" id="status"></div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
