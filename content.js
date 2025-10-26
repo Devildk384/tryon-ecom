@@ -22,49 +22,57 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// Get all product images from the page
 async function getProductImages() {
-  const selectors = [
-    'img[src*="assets.myntassets.com"]',
-    '.image-grid-image',
-    '.image-grid-imageContainer img',
-    '.imageSlider-image',
-    'img[class*="image"]',
-    'img[class*="product"]',
-    '.pdp-image img',
-    'picture img',
-    '[class*="imageContainer"] img',
-    '[class*="ImageContainer"] img'
-  ];
-  
-  const images = document.querySelectorAll(selectors.join(','));
-  const imageUrls = [];
-  
-  // Store references to images
-  productImages = Array.from(images);
-  
-  // Extract unique image URLs
-  const seenUrls = new Set();
-  
-  for (const img of images) {
-    const url = img.src;
-    if (url && url.includes('myntassets.com') && !seenUrls.has(url)) {
-      seenUrls.add(url);
-      
-      // Try to load the image via CORS proxy or convert to base64
-      try {
-        const base64 = await imageToBase64(url);
-        imageUrls.push(base64);
-      } catch (error) {
-        // If CORS fails, just pass the URL
-        imageUrls.push(url);
-      }
-    }
+  const hostname = window.location.hostname;
+  const isMyntra = hostname.includes('myntra.com');
+  const isSnitch = hostname.includes('snitch.co.in') || hostname.includes('snitch.com');
+
+  let selectors = [];
+
+  if (isMyntra) {
+    selectors = [
+      'img[src*="assets.myntassets.com"]',
+      'img[src*="myntra.com"]',
+      '.image-grid-image',
+      '.image-grid-imageContainer img',
+      '.imageSlider-image',
+      '.pdp-image img',
+      'picture img',
+      '[class*="imageContainer"] img',
+      '[class*="ImageContainer"] img',
+      '[class*="slider"] img',
+      '[class*="Slider"] img'
+    ];
+  } else if (isSnitch) {
+    selectors = [
+      'img[src*="cdn.shopify.com"]',
+      'img[src*="snitch.co.in"]',
+      '.product-media img',
+      '.aspect-square img',
+      '.cursor-pointer img',
+      '.border-2 img',
+      'div.relative img[data-nimg="fill"]',
+      '.product-gallery img',
+      'img[alt*="Snitch"]',
+      'img[alt*="Image of"]'
+    ];
   }
-  
-  console.log(`Found ${imageUrls.length} product images`);
-  return imageUrls;
+
+  const imageElements = document.querySelectorAll(selectors.join(','));
+  const uniqueSrcs = new Set();
+
+  imageElements.forEach(img => {
+    const src = img.currentSrc || img.src;
+    if (src && !uniqueSrcs.has(src)) {
+      uniqueSrcs.add(src);
+    }
+  });
+
+  console.log(`🖼️ Found ${uniqueSrcs.size} images on ${hostname}`, [...uniqueSrcs]);
+  return [...uniqueSrcs];
 }
+
+
 
 // Convert image URL to base64 using fetch with proper error handling
 async function imageToBase64(url) {
@@ -74,13 +82,13 @@ async function imageToBase64(url) {
       mode: 'cors',
       credentials: 'omit'
     });
-    
+
     if (!response.ok) {
       throw new Error('Fetch failed');
     }
-    
+
     const blob = await response.blob();
-    
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
@@ -92,8 +100,8 @@ async function imageToBase64(url) {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      
-      img.onload = function() {
+
+      img.onload = function () {
         try {
           const canvas = document.createElement('canvas');
           canvas.width = img.naturalWidth || img.width;
@@ -107,12 +115,12 @@ async function imageToBase64(url) {
           resolve(url);
         }
       };
-      
-      img.onerror = function() {
+
+      img.onerror = function () {
         console.warn('Image load failed, using original URL');
         resolve(url);
       };
-      
+
       img.src = url;
     });
   }
@@ -121,43 +129,57 @@ async function imageToBase64(url) {
 // IMPROVED: Replace all images with try-on versions
 function replaceWithTryOnImages(tryOnImages) {
   console.log('Starting image replacement with try-on images:', tryOnImages.length);
-  
+
   if (!tryOnImages || tryOnImages.length === 0) {
     console.error('No try-on images provided');
     return;
   }
-  
+
   const tryOnImage = tryOnImages[0];
-  
+
   // Enhanced selectors for Myntra
   const selectors = [
+    // --- Myntra selectors ---
     'img[src*="assets.myntassets.com"]',
     'img[src*="myntra.com"]',
     '.image-grid-image',
     '.image-grid-imageContainer img',
     '.imageSlider-image',
-    '.thumbnails-thumb img',
-    'img[class*="image"]',
-    'img[class*="Image"]',
-    'img[class*="product"]',
-    'img[class*="Product"]',
     '.pdp-image img',
     'picture img',
     '[class*="imageContainer"] img',
     '[class*="ImageContainer"] img',
     '[class*="slider"] img',
-    '[class*="Slider"] img'
+    '[class*="Slider"] img',
+
+    // --- Snitch selectors ---
+    'img[src*="cdn.shopify.com"]',
+    'div.relative img[data-nimg="fill"]',
+    '.product-media img',
+    '.aspect-square img',
+    '.cursor-pointer img',
+    '.border-2 img',
+    'img[alt*="snitch"]',
+    'img[alt*="Image of"]'
   ];
-  
+
   const images = document.querySelectorAll(selectors.join(','));
   let replacedCount = 0;
-  
+
   console.log(`Found ${images.length} images to potentially replace`);
-  
+
   images.forEach((img, index) => {
     // Only replace if it's a product image (contains myntassets or myntra)
-    if (img.src && (img.src.includes('myntassets.com') || img.src.includes('myntra.com'))) {
-      
+    if (
+      img.src && (
+        img.src.includes('myntassets.com') ||
+        img.src.includes('myntra.com') ||
+        img.src.includes('cdn.shopify.com') ||
+        img.src.includes('snitch.co.in') ||
+        img.src.includes('snitch.com')
+      )
+    ) {
+
       // Store original source if not already stored
       if (!originalImages.has(img)) {
         originalImages.set(img, {
@@ -165,7 +187,7 @@ function replaceWithTryOnImages(tryOnImages) {
           srcset: img.srcset || '',
           parent: img.parentElement
         });
-        
+
         // If image is inside a picture element, store source elements
         if (img.parentElement && img.parentElement.tagName === 'PICTURE') {
           const sources = img.parentElement.querySelectorAll('source');
@@ -179,19 +201,19 @@ function replaceWithTryOnImages(tryOnImages) {
           });
         }
       }
-      
+
       // Apply the replacement with smooth transition
       img.style.transition = 'opacity 0.3s ease-in-out';
       img.style.opacity = '0';
-      
+
       setTimeout(() => {
         // Set the new image
         img.src = tryOnImage;
         img.srcset = '';
-        
+
         // Force reload if needed
         img.removeAttribute('srcset');
-        
+
         // Handle picture elements
         if (img.parentElement && img.parentElement.tagName === 'PICTURE') {
           const sources = img.parentElement.querySelectorAll('source');
@@ -200,23 +222,23 @@ function replaceWithTryOnImages(tryOnImages) {
             source.removeAttribute('srcset');
           });
         }
-        
+
         // Ensure image loads
         img.onload = () => {
           img.style.opacity = '1';
           console.log(`Successfully replaced image ${index + 1}`);
         };
-        
+
         // Fallback to show image even if onload doesn't fire
         setTimeout(() => {
           img.style.opacity = '1';
         }, 500);
-        
+
         replacedCount++;
       }, 300);
     }
   });
-  
+
   // Also handle background images
   const elementsWithBg = document.querySelectorAll('[style*="background-image"]');
   elementsWithBg.forEach(el => {
@@ -227,7 +249,7 @@ function replaceWithTryOnImages(tryOnImages) {
           backgroundImage: currentBg
         });
       }
-      
+
       el.style.transition = 'opacity 0.3s';
       el.style.opacity = '0';
       setTimeout(() => {
@@ -237,12 +259,12 @@ function replaceWithTryOnImages(tryOnImages) {
       }, 300);
     }
   });
-  
+
   console.log(`Replaced ${replacedCount} images with virtual try-on`);
-  
+
   // Add watermark to indicate it's virtual try-on
   setTimeout(() => addTryOnWatermark(), 500);
-  
+
   // Force a re-check after 1 second for lazy-loaded images
   setTimeout(() => {
     const newImages = document.querySelectorAll(selectors.join(','));
@@ -264,7 +286,7 @@ function addTryOnWatermark() {
   // Remove existing watermark if any
   const existing = document.getElementById('virtual-tryon-watermark');
   if (existing) existing.remove();
-  
+
   const watermark = document.createElement('div');
   watermark.id = 'virtual-tryon-watermark';
   watermark.style.cssText = `
@@ -284,7 +306,7 @@ function addTryOnWatermark() {
   `;
   watermark.textContent = '✨ Virtual Try-On Active';
   document.body.appendChild(watermark);
-  
+
   // Auto-remove after 5 seconds
   setTimeout(() => {
     watermark.style.transition = 'opacity 0.5s';
@@ -296,12 +318,12 @@ function addTryOnWatermark() {
 // Reset all images to original
 function resetAllImages() {
   console.log('Resetting all images to original');
-  
+
   // Restore all original images
   originalImages.forEach((original, element) => {
     element.style.transition = 'opacity 0.3s';
     element.style.opacity = '0';
-    
+
     setTimeout(() => {
       if (element.tagName === 'IMG') {
         element.src = original.src;
@@ -311,18 +333,18 @@ function resetAllImages() {
       } else if (original.backgroundImage) {
         element.style.backgroundImage = original.backgroundImage;
       }
-      
+
       element.style.opacity = '1';
     }, 300);
   });
-  
+
   // Clear the map
   originalImages.clear();
-  
+
   // Remove watermark
   const watermark = document.getElementById('virtual-tryon-watermark');
   if (watermark) watermark.remove();
-  
+
   console.log('Reset complete');
 }
 
@@ -331,7 +353,7 @@ const observer = new MutationObserver((mutations) => {
   mutations.forEach(mutation => {
     mutation.addedNodes.forEach(node => {
       if (node.nodeType === 1) {
-        const newImages = node.querySelectorAll('img[src*="myntassets.com"], img[src*="myntra.com"]');
+        const newImages = node.querySelectorAll('img[src*="myntassets.com"], img[src*="myntra.com"], img[src*="cdn.shopify.com"]');
         if (newImages.length > 0) {
           productImages.push(...newImages);
         }

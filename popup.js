@@ -10,28 +10,22 @@ const status = document.getElementById('status');
 const loading = document.getElementById('loading');
 const loadingText = document.getElementById('loadingText');
 const progressFill = document.getElementById('progressFill');
-const apiKey = document.getElementById('apiKey');
+// const apiKey = document.getElementById('apiKey');
 const productImagesContainer = document.getElementById('productImagesContainer');
 const productImageGrid = document.getElementById('productImageGrid');
 const fetchImagesBtn = document.getElementById('fetchImagesBtn');
+
+// Result preview elements
+const resultSection = document.getElementById('resultSection');
+const resultPreview = document.getElementById('resultPreview');
+const downloadResultBtn = document.getElementById('downloadResultBtn');
+const saveResultBtn = document.getElementById('saveResultBtn');
 
 let userImageData = null;
 let productImages = [];
 let selectedProductImage = null;
 
-// Load saved API key
-chrome.storage.local.get(['glamAiApiKey'], (result) => {
-  if (result.glamAiApiKey) {
-    apiKey.value = result.glamAiApiKey;
-  }
-  checkReadiness();
-});
 
-// Save API key
-apiKey.addEventListener('change', () => {
-  chrome.storage.local.set({ glamAiApiKey: apiKey.value });
-  checkReadiness();
-});
 
 // Upload events
 uploadArea.addEventListener('click', () => fileInput.click());
@@ -84,10 +78,11 @@ fetchImagesBtn.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url.includes('myntra.com')) {
-      showStatus('⚠️ Please open a Myntra product page', 'warning');
-      return;
-    }
+  if (!tab.url.includes('myntra.com') && !tab.url.includes('snitch.com')) {
+    showStatus('⚠️ Please open a Myntra or Snitch product page', 'warning');
+    return;
+  }
+
 
     showStatus('🔍 Fetching product images...', 'info');
     fetchImagesBtn.disabled = true;
@@ -162,12 +157,10 @@ function displayProductImages(images) {
 
 // Check if ready
 function checkReadiness() {
-  const ready = apiKey.value.trim() && userImageData && selectedProductImage;
+  const ready =  userImageData && selectedProductImage;
   tryOnBtn.disabled = !ready;
   
-  if (!apiKey.value.trim()) {
-    showStatus('⚠️ Enter your Glam.AI API key', 'warning');
-  } else if (!userImageData) {
+   if (!userImageData) {
     showStatus('⚠️ Upload your photo', 'warning');
   } else if (!selectedProductImage) {
     showStatus('⚠️ Fetch and select a product image', 'warning');
@@ -196,12 +189,12 @@ async function ensureContentScriptLoaded(tabId) {
 
 // Try-on button
 tryOnBtn.addEventListener('click', async () => {
-  if (!userImageData || !apiKey.value || !selectedProductImage) return;
+  if (!userImageData || !selectedProductImage) return;
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url.includes('myntra.com')) {
+    if (!tab.url.includes('myntra.com') && !tab.url.includes('snitch.com')) {
       showStatus('⚠️ Please open a Myntra product page', 'warning');
       return;
     }
@@ -271,6 +264,8 @@ tryOnBtn.addEventListener('click', async () => {
     showLoading(false);
     showStatus('✨ AI Try-On Complete!', 'success');
     resetBtn.style.display = 'block';
+    showResultPreview(resultBase64);
+
 
   } catch (err) {
     showLoading(false);
@@ -281,30 +276,39 @@ tryOnBtn.addEventListener('click', async () => {
 
 
 async function uploadToS3ViaApiGateway(imageData) {
-  // Convert base64 data URL to Blob
   let blob;
-  if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
-    const byteString = atob(imageData.split(',')[1]);
-    const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
+
+  if (typeof imageData === 'string') {
+    if (imageData.startsWith('data:image')) {
+      // ✅ Base64 data URL
+      const byteString = atob(imageData.split(',')[1]);
+      const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+      blob = new Blob([ab], { type: mimeString });
+    } else if (imageData.startsWith('http')) {
+      // ✅ Remote image URL (fetch it first)
+      const res = await fetch(imageData);
+      if (!res.ok) throw new Error('Failed to fetch product image from URL');
+      const buffer = await res.arrayBuffer();
+      blob = new Blob([buffer], { type: res.headers.get('content-type') || 'image/jpeg' });
+    } else {
+      throw new Error('Unsupported image data type');
     }
-    blob = new Blob([ab], { type: mimeString });
   } else if (imageData instanceof File || imageData instanceof Blob) {
     blob = imageData;
   } else {
-    throw new Error('Invalid image data');
+    throw new Error('Invalid image data format');
   }
 
   const formData = new FormData();
-  formData.append('file', blob, 'upload.png'); // fieldname must be 'file'
+  formData.append('file', blob, 'upload.png');
 
   try {
     const response = await fetch('https://ah2zhsw899.execute-api.eu-north-1.amazonaws.com/prod', {
       method: 'POST',
-      body: formData
+      body: formData,
     });
 
     const data = await response.json();
@@ -323,13 +327,13 @@ async function uploadToS3ViaApiGateway(imageData) {
 
 
 
+
 // Call Glam.AI via Lambda API Gateway
 async function callGlamAI(personUrl, clothUrl) {
   const response = await fetch('https://ggbhbc09mc.execute-api.eu-north-1.amazonaws.com/prod', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      api_key: apiKey.value,
       media_url: personUrl,
       garment_url: clothUrl
     })
@@ -346,7 +350,6 @@ async function callGlamAIResult(event_id) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      api_key: apiKey.value,
       event_id: event_id,
     })
   });
@@ -385,6 +388,37 @@ resetBtn.addEventListener('click', async () => {
     showStatus('❌ ' + error.message, 'error');
   }
 });
+
+
+// Show result image in popup
+function showResultPreview(base64Image) {
+  resultPreview.src = base64Image;
+  resultSection.style.display = 'block';
+  downloadResultBtn.onclick = () => downloadImage(base64Image);
+  saveResultBtn.onclick = () => saveImageToStorage(base64Image);
+}
+
+// Download image locally
+function downloadImage(base64Image) {
+  const link = document.createElement('a');
+  link.href = base64Image;
+  link.download = `glam-ai-tryon-${Date.now()}.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showStatus('📥 Image downloaded!', 'success');
+}
+
+// Save image to Chrome local storage (for a gallery feature)
+function saveImageToStorage(base64Image) {
+  chrome.storage.local.get(['savedResults'], (result) => {
+    const saved = result.savedResults || [];
+    saved.push({ image: base64Image, date: new Date().toISOString() });
+    chrome.storage.local.set({ savedResults: saved }, () => {
+      showStatus('💾 Image saved to gallery', 'success');
+    });
+  });
+}
 
 // UI Helpers
 function showLoading(show, text = 'Processing...') {

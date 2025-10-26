@@ -312,20 +312,8 @@
 </head>
 <body>
   <div class="container">
-    <h2>🤖 AI Virtual Try-On <span class="ai-badge">Glam.AI</span></h2>
+    <h2>🤖 AI Virtual Try-On </h2>
     <div class="subtitle">Try on outfits instantly with AI</div>
-    
-    <!-- Step 1: API Key -->
-    <div class="section">
-      <div class="section-title">
-        <span class="step-number">1</span>
-        <span>🔑 API Key</span>
-      </div>
-      <input type="password" id="apiKey" placeholder="Enter your Glam.AI API key">
-      <div style="margin-top: 5px;">
-        <a href="https://glam.ai" target="_blank">Get your free key →</a>
-      </div>
-    </div>
 
     <!-- Step 2: Upload Your Photo -->
     <div class="section">
@@ -357,6 +345,21 @@
       </div>
     </div>
 
+      <!-- AI Result Preview -->
+    <div class="section" id="resultSection" style="display: none;">
+      <div class="section-title">
+        <span class="step-number">4</span>
+        <span>🎨 AI Try-On Result</span>
+      </div>
+      <div style="text-align: center;">
+        <img id="resultPreview" class="preview" alt="AI Try-On Result" style="max-height: 250px; margin-bottom: 10px;">
+        <div>
+          <button id="downloadResultBtn" class="secondary-btn">⬇️ Download</button>
+          <button id="saveResultBtn" class="secondary-btn">💾 Save to Gallery</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Try On Button -->
     <button id="tryOnBtn" disabled>🚀 Generate AI Try-On</button>
     <button id="resetBtn" class="reset-btn" style="display: none;">↺ Reset to Original</button>
@@ -368,6 +371,8 @@
         <div class="progress-fill" id="progressFill"></div>
       </div>
     </div>
+  
+
     
     <div class="status" id="status"></div>
   </div>
