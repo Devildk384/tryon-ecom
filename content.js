@@ -33,15 +33,8 @@ async function getProductImages() {
     selectors = [
       'img[src*="assets.myntassets.com"]',
       'img[src*="myntra.com"]',
-      '.image-grid-image',
-      '.image-grid-imageContainer img',
-      '.imageSlider-image',
-      '.pdp-image img',
-      'picture img',
-      '[class*="imageContainer"] img',
-      '[class*="ImageContainer"] img',
-      '[class*="slider"] img',
-      '[class*="Slider"] img'
+       '.image-grid-container .image-grid-image',      // background-image divs (preferred)
+    '.image-grid-container img', 
     ];
   } else if (isSnitch) {
     selectors = [
@@ -62,11 +55,17 @@ async function getProductImages() {
   const uniqueSrcs = new Set();
 
   imageElements.forEach(img => {
-    const src = img.currentSrc || img.src;
-    if (src && !uniqueSrcs.has(src)) {
-      uniqueSrcs.add(src);
-    }
-  });
+  const src = img.currentSrc || img.src || img.style.backgroundImage;
+  if (!src) return;
+
+  // ❌ Skip variants / color swatches
+  if (img.closest('.colors-container')) return;
+  if (img.closest('.similarColors')) return;
+  if (src.includes('f_auto')) return; // those are variant thumbnails
+
+  uniqueSrcs.add(src.replace('url("', '').replace('")','')); // cleanup bg-url
+});
+
 
   console.log(`🖼️ Found ${uniqueSrcs.size} images on ${hostname}`, [...uniqueSrcs]);
   return [...uniqueSrcs];

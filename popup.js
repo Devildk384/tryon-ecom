@@ -187,6 +187,24 @@ async function ensureContentScriptLoaded(tabId) {
   }
 }
 
+async function removeWatermark(base64Image) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Image;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = img.width;
+      canvas.height = img.height * 0.885;  // crop bottom 8%
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+  });
+}
+
+
 // Try-on button
 tryOnBtn.addEventListener('click', async () => {
   if (!userImageData || !selectedProductImage) return;
@@ -254,17 +272,21 @@ tryOnBtn.addEventListener('click', async () => {
 
     // Convert via background worker to avoid CORS
     const resultBase64 = await convertImageViaBackground(urlResult);
-    
+
+    const cleanImage = await removeWatermark(resultBase64);
     await chrome.tabs.sendMessage(tab.id, {
       action: 'replaceWithTryOn',
-      tryOnImages: [resultBase64]
+      tryOnImages: [cleanImage]
     });
+
+    
+   
 
     updateProgress(100);
     showLoading(false);
     showStatus('✨ AI Try-On Complete!', 'success');
     resetBtn.style.display = 'block';
-    showResultPreview(resultBase64);
+    showResultPreview(cleanImage);
 
 
   } catch (err) {
